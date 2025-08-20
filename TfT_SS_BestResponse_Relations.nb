@@ -1,0 +1,1464 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Wolfram 14.2' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       154,          7]
+NotebookDataLength[     60498,       1456]
+NotebookOptionsPosition[     58696,       1423]
+NotebookOutlinePosition[     59133,       1440]
+CellTagsIndexPosition[     59090,       1437]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["Tit-for-Tat State Space IBR Conditions", "Title",
+ CellChangeTimes->{{3.964454919124012*^9, 3.964454965855255*^9}, {
+  3.964637387024292*^9, 
+  3.964637392357815*^9}},ExpressionUUID->"fc266617-a2c0-fc4e-8acd-\
+bd0b8ee58c73"],
+
+Cell["\<\
+This file contains the Mathematica code for solving for the individual \
+best-response conditions for the Tit-for-Tat (TfT) state space.\
+\>", "Subtitle",
+ CellChangeTimes->{{3.9644551411478252`*^9, 3.964455194409193*^9}, {
+  3.9644552344950695`*^9, 3.9644552534141655`*^9}, {3.9646373981231422`*^9, 
+  3.964637400968849*^9}, {3.964699610345337*^9, 
+  3.964699635429283*^9}},ExpressionUUID->"7bde8321-f1cb-d34d-b8f8-\
+e057ed8fa12a"],
+
+Cell["\<\
+This Mathematica code follows the method outlined in
+Barfuss, W. and R. P. Mann (2022, Mar). Modeling the effects of environmental \
+and perceptual uncertainty using deterministic reinforcement learning \
+dynamics with partial observability. Phys. Rev. E 105, 034409.
+
+We start by writing out all possible strategies of a single agent in a binary \
+array. The length of this array is determined by the number of distinct \
+states the agent can see. In the TfT state space, the agent can see two \
+states, the Opponent played C state (C,C)/(D,C) and the Opponent played D \
+state (C,D)/(D,D). An agent can play either C or D in each of these states, \
+which means that the agent can have 4 distinct strategies; All-D, Anti-TfT, \
+TfT, and All-C.
+
+Next, we use the makematrix[] function to find the probability of being in \
+all action pairs (states in the Full space), given two epsilon greedy \
+policies. We then calculate the stationary distributions of these strategies \
+and store them in symbolicResults.  The tftss[] function takes a TfT strategy \
+profile, maps it to the Full space, and then outputs the steady state \
+distribution.\
+\>", "Text",
+ CellChangeTimes->{{3.9644553920813656`*^9, 3.9644556822987766`*^9}, {
+   3.9646374097042084`*^9, 3.964637413179056*^9}, {3.9646374464343815`*^9, 
+   3.96463747642223*^9}, {3.9646389532101345`*^9, 3.9646390367694283`*^9}, {
+   3.9646993559300556`*^9, 3.964699421286707*^9}, {3.964699453990183*^9, 
+   3.9646995211971607`*^9}, {3.9646996388139095`*^9, 
+   3.9646997008604126`*^9}, {3.9646997765937195`*^9, 3.9646997832762756`*^9}, 
+   3.9647030719197044`*^9},ExpressionUUID->"71548dfa-55a2-2043-8f8f-\
+fc1b6bc1bcd9"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"toBin", "[", 
+   RowBox[{"n_", ",", "l_"}], "]"}], ":=", " ", 
+  RowBox[{"Join", "[", 
+   RowBox[{
+    RowBox[{"ConstantArray", "[", 
+     RowBox[{"0", ",", 
+      RowBox[{"l", "-", 
+       RowBox[{"Length", "[", 
+        RowBox[{"IntegerDigits", "[", 
+         RowBox[{"n", ",", "2"}], "]"}], "]"}]}]}], "]"}], ",", 
+    RowBox[{"IntegerDigits", "[", 
+     RowBox[{"n", ",", "2"}], "]"}]}], "]"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"FullStrats", " ", "=", " ", 
+   RowBox[{"{", "}"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Do", "[", 
+   RowBox[{
+    RowBox[{"AppendTo", "[", 
+     RowBox[{"FullStrats", ",", " ", 
+      RowBox[{"toBin", "[", 
+       RowBox[{"i", ",", "4"}], "]"}]}], "]"}], ",", 
+    RowBox[{"{", 
+     RowBox[{"i", ",", "0", ",", "15"}], "}"}]}], "]"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"makematrix", "[", 
+     RowBox[{"strat1_", ",", "strat2_"}], "]"}], ":=", "\[IndentingNewLine]", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"s1", "=", "strat1"}], ",", 
+        RowBox[{"s2", "=", 
+         RowBox[{"{", 
+          RowBox[{
+           RowBox[{"strat2", "[", 
+            RowBox[{"[", "1", "]"}], "]"}], ",", 
+           RowBox[{"strat2", "[", 
+            RowBox[{"[", "3", "]"}], "]"}], ",", 
+           RowBox[{"strat2", "[", 
+            RowBox[{"[", "2", "]"}], "]"}], ",", 
+           RowBox[{"strat2", "[", 
+            RowBox[{"[", "4", "]"}], "]"}]}], "}"}]}]}], "}"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"matrix", " ", "=", " ", 
+        RowBox[{"ConstantArray", "[", 
+         RowBox[{
+          RowBox[{"ConstantArray", "[", 
+           RowBox[{
+            RowBox[{"e", "^", "2"}], ",", "4"}], "]"}], ",", "4"}], "]"}]}], ";",
+        "\[IndentingNewLine]", 
+       RowBox[{"Do", "[", 
+        RowBox[{
+         RowBox[{"Do", "[", 
+          RowBox[{
+           RowBox[{"Which", "[", 
+            RowBox[{
+             RowBox[{
+              RowBox[{"{", 
+               RowBox[{
+                RowBox[{"s1", "[", 
+                 RowBox[{"[", "i", "]"}], "]"}], ",", 
+                RowBox[{"s2", "[", 
+                 RowBox[{"[", "i", "]"}], "]"}]}], "}"}], " ", "==", 
+              RowBox[{"toBin", "[", 
+               RowBox[{
+                RowBox[{"j", "-", "1"}], ",", "2"}], "]"}]}], ",", " ", 
+             RowBox[{
+              RowBox[{
+               RowBox[{"matrix", "[", 
+                RowBox[{"[", "i", "]"}], "]"}], "[", 
+               RowBox[{"[", "j", "]"}], "]"}], " ", "=", " ", 
+              RowBox[{
+               RowBox[{"(", 
+                RowBox[{"1", "-", "e"}], ")"}], "^", "2"}]}], ",", 
+             "\[IndentingNewLine]", "\t\t  ", 
+             RowBox[{
+              RowBox[{"s1", "[", 
+               RowBox[{"[", "i", "]"}], "]"}], " ", "==", 
+              RowBox[{
+               RowBox[{"toBin", "[", 
+                RowBox[{
+                 RowBox[{"j", "-", "1"}], ",", "2"}], "]"}], "[", 
+               RowBox[{"[", "1", "]"}], "]"}]}], ",", " ", 
+             RowBox[{
+              RowBox[{
+               RowBox[{"matrix", "[", 
+                RowBox[{"[", "i", "]"}], "]"}], "[", 
+               RowBox[{"[", "j", "]"}], "]"}], " ", "=", " ", 
+              RowBox[{"e", 
+               RowBox[{"(", 
+                RowBox[{"1", "-", "e"}], ")"}]}]}], ",", 
+             "\[IndentingNewLine]", "\t\t  ", 
+             RowBox[{
+              RowBox[{"s2", "[", 
+               RowBox[{"[", "i", "]"}], "]"}], " ", "==", 
+              RowBox[{
+               RowBox[{"toBin", "[", 
+                RowBox[{
+                 RowBox[{"j", "-", "1"}], ",", "2"}], "]"}], "[", 
+               RowBox[{"[", "2", "]"}], "]"}]}], ",", " ", 
+             RowBox[{
+              RowBox[{
+               RowBox[{"matrix", "[", 
+                RowBox[{"[", "i", "]"}], "]"}], "[", 
+               RowBox[{"[", "j", "]"}], "]"}], " ", "=", " ", 
+              RowBox[{"e", 
+               RowBox[{"(", 
+                RowBox[{"1", "-", "e"}], ")"}]}]}]}], "]"}], ",", 
+           "\[IndentingNewLine]", 
+           RowBox[{"{", 
+            RowBox[{"j", ",", "1", ",", "4"}], "}"}]}], "]"}], ",", 
+         RowBox[{"{", 
+          RowBox[{"i", ",", "1", ",", "4"}], "}"}]}], "]"}], ";", 
+       "\[IndentingNewLine]", "matrix"}]}], "\[IndentingNewLine]", "]"}]}], 
+   ";"}], "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"symbolicResults", "=", 
+   RowBox[{"{", "}"}]}], ";"}], "\n", 
+ RowBox[{
+  RowBox[{"Do", "[", 
+   RowBox[{
+    RowBox[{"Do", "[", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"m", "=", 
+        RowBox[{"makematrix", "[", 
+         RowBox[{
+          RowBox[{"FullStrats", "[", 
+           RowBox[{"[", "i", "]"}], "]"}], ",", 
+          RowBox[{"FullStrats", "[", 
+           RowBox[{"[", "j", "]"}], "]"}]}], "]"}]}], ";", 
+       "\[IndentingNewLine]", 
+       RowBox[{"P", "=", 
+        RowBox[{"DiscreteMarkovProcess", "[", 
+         RowBox[{
+          RowBox[{"ConstantArray", "[", 
+           RowBox[{
+            RowBox[{"1", "/", "4"}], ",", "4"}], "]"}], ",", "m"}], "]"}]}], ";",
+        "\[IndentingNewLine]", 
+       RowBox[{"(*", 
+        RowBox[{
+         RowBox[{"distr", " ", "=", " ", 
+          RowBox[{"PDF", "[", 
+           RowBox[{
+            RowBox[{"StationaryDistribution", "[", "P", "]"}], ",", 
+            RowBox[{"Table", "[", 
+             RowBox[{"i", ",", 
+              RowBox[{"{", 
+               RowBox[{"i", ",", "1", ",", "4"}], "}"}]}], "]"}]}], "]"}]}], 
+         ";"}], "*)"}], "\[IndentingNewLine]", 
+       RowBox[{"distr", " ", "=", " ", 
+        RowBox[{"PDF", "[", 
+         RowBox[{
+          RowBox[{"StationaryDistribution", "[", "P", "]"}], ",", 
+          RowBox[{"Table", "[", 
+           RowBox[{"i", ",", 
+            RowBox[{"{", 
+             RowBox[{"i", ",", "1", ",", "4"}], "}"}]}], "]"}]}], "]"}]}], ";", 
+       RowBox[{"AppendTo", "[", 
+        RowBox[{"symbolicResults", ",", 
+         RowBox[{"{", 
+          RowBox[{
+           RowBox[{"FromDigits", "[", 
+            RowBox[{
+             RowBox[{"Join", "[", 
+              RowBox[{
+               RowBox[{"toBin", "[", 
+                RowBox[{
+                 RowBox[{"i", "-", "1"}], ",", "4"}], "]"}], ",", 
+               RowBox[{"toBin", "[", 
+                RowBox[{
+                 RowBox[{"j", "-", "1"}], ",", "4"}], "]"}]}], "]"}], ",", 
+             "2"}], "]"}], ",", 
+           RowBox[{"Join", "[", 
+            RowBox[{
+             RowBox[{"toBin", "[", 
+              RowBox[{
+               RowBox[{"i", "-", "1"}], ",", "4"}], "]"}], ",", 
+             RowBox[{"toBin", "[", 
+              RowBox[{
+               RowBox[{"j", "-", "1"}], ",", "4"}], "]"}]}], "]"}], ",", 
+           "distr"}], "}"}]}], "]"}]}], ",", 
+      RowBox[{"{", 
+       RowBox[{"j", ",", "1", ",", "16"}], "}"}]}], "]"}], ",", 
+    RowBox[{"{", 
+     RowBox[{"i", ",", "1", ",", "16"}], "}"}]}], "]"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"filteredResults", "=", 
+   RowBox[{"Select", "[", 
+    RowBox[{"symbolicResults", ",", 
+     RowBox[{"Function", "[", 
+      RowBox[{"entry", ",", 
+       RowBox[{"Module", "[", 
+        RowBox[{
+         RowBox[{"{", 
+          RowBox[{"strat1", ",", "strat2"}], "}"}], ",", 
+         RowBox[{
+          RowBox[{"strat1", "=", 
+           RowBox[{
+            RowBox[{"entry", "[", 
+             RowBox[{"[", "2", "]"}], "]"}], "[", 
+            RowBox[{"[", 
+             RowBox[{"1", ";;", "4"}], "]"}], "]"}]}], ";", 
+          "\[IndentingNewLine]", 
+          RowBox[{"strat2", "=", 
+           RowBox[{
+            RowBox[{"entry", "[", 
+             RowBox[{"[", "2", "]"}], "]"}], "[", 
+            RowBox[{"[", 
+             RowBox[{"5", ";;", "8"}], "]"}], "]"}]}], ";", 
+          "\[IndentingNewLine]", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"strat1", "[", 
+             RowBox[{"[", "1", "]"}], "]"}], "==", 
+            RowBox[{"strat1", "[", 
+             RowBox[{"[", "3", "]"}], "]"}]}], "&&", 
+           RowBox[{
+            RowBox[{"strat1", "[", 
+             RowBox[{"[", "2", "]"}], "]"}], "==", 
+            RowBox[{"strat1", "[", 
+             RowBox[{"[", "4", "]"}], "]"}]}], "&&", 
+           RowBox[{
+            RowBox[{"strat2", "[", 
+             RowBox[{"[", "1", "]"}], "]"}], "==", 
+            RowBox[{"strat2", "[", 
+             RowBox[{"[", "3", "]"}], "]"}]}], "&&", 
+           RowBox[{
+            RowBox[{"strat2", "[", 
+             RowBox[{"[", "2", "]"}], "]"}], "==", 
+            RowBox[{"strat2", "[", 
+             RowBox[{"[", "4", "]"}], "]"}]}]}]}]}], "]"}]}], "]"}]}], 
+    "]"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"TfTStrats", " ", "=", " ", 
+   RowBox[{"{", "}"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"Do", "[", 
+    RowBox[{
+     RowBox[{"AppendTo", "[", 
+      RowBox[{"TfTStrats", ",", " ", 
+       RowBox[{"toBin", "[", 
+        RowBox[{"i", ",", "2"}], "]"}]}], "]"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"i", ",", "0", ",", "3"}], "}"}]}], "]"}], ";"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"tftss", "[", 
+    RowBox[{"strat1_", ",", "strat2_"}], "]"}], ":=", "\[IndentingNewLine]", 
+   RowBox[{"(*", 
+    RowBox[{
+     RowBox[{
+      RowBox[{"Map", " ", "2"}], "-", 
+      RowBox[{
+      "bit", " ", "strategies", " ", "to", " ", "indices", " ", "in", " ", 
+       "strats", " ", "based", " ", "on", " ", "pattern", " ", 
+       RowBox[{"(", 
+        RowBox[{"a", ",", "b"}], ")"}]}]}], "->", 
+     RowBox[{"(", 
+      RowBox[{"a", ",", "b", ",", "a", ",", "b"}], ")"}]}], "*)"}], 
+   RowBox[{"Module", "[", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"idx1", ",", "idx2", ",", "result"}], "}"}], ",", 
+     RowBox[{
+      RowBox[{"idx1", "=", 
+       RowBox[{"Switch", "[", 
+        RowBox[{"strat1", ",", 
+         RowBox[{"{", 
+          RowBox[{"0", ",", "0"}], "}"}], ",", "1", ",", 
+         RowBox[{"(*", 
+          RowBox[{
+           RowBox[{"{", 
+            RowBox[{"0", ",", "0", ",", "0", ",", "0"}], "}"}], " ", "is", " ",
+            "at", " ", "index", " ", "1"}], "*)"}], 
+         RowBox[{"{", 
+          RowBox[{"0", ",", "1"}], "}"}], ",", "6", ",", 
+         RowBox[{"(*", 
+          RowBox[{
+           RowBox[{"{", 
+            RowBox[{"0", ",", "1", ",", "0", ",", "1"}], "}"}], " ", "is", " ",
+            "at", " ", "index", " ", "6"}], "*)"}], 
+         RowBox[{"{", 
+          RowBox[{"1", ",", "0"}], "}"}], ",", "11", ",", 
+         RowBox[{"(*", 
+          RowBox[{
+           RowBox[{"{", 
+            RowBox[{"1", ",", "0", ",", "1", ",", "0"}], "}"}], " ", "is", " ",
+            "at", " ", "index", " ", "11"}], "*)"}], 
+         RowBox[{"{", 
+          RowBox[{"1", ",", "1"}], "}"}], ",", "16"}], "  ", 
+        RowBox[{"(*", 
+         RowBox[{
+          RowBox[{"{", 
+           RowBox[{"1", ",", "1", ",", "1", ",", "1"}], "}"}], " ", "is", " ",
+           "at", " ", "index", " ", "16"}], "*)"}], "]"}]}], ";", 
+      "\[IndentingNewLine]", 
+      RowBox[{"idx2", "=", 
+       RowBox[{"Switch", "[", 
+        RowBox[{"strat2", ",", 
+         RowBox[{"{", 
+          RowBox[{"0", ",", "0"}], "}"}], ",", "1", ",", 
+         RowBox[{"{", 
+          RowBox[{"0", ",", "1"}], "}"}], ",", "6", ",", 
+         RowBox[{"{", 
+          RowBox[{"1", ",", "0"}], "}"}], ",", "11", ",", 
+         RowBox[{"{", 
+          RowBox[{"1", ",", "1"}], "}"}], ",", "16"}], "]"}]}], ";", 
+      "\[IndentingNewLine]", 
+      RowBox[{"(*", 
+       RowBox[{
+       "Find", " ", "the", " ", "corresponding", " ", "entry", " ", "in", " ",
+         "symbolicResults"}], "*)"}], "\[IndentingNewLine]", 
+      RowBox[{"result", "=", 
+       RowBox[{"symbolicResults", "[", 
+        RowBox[{"[", 
+         RowBox[{
+          RowBox[{
+           RowBox[{"(", 
+            RowBox[{"idx1", "-", "1"}], ")"}], "*", "16"}], "+", "idx2"}], 
+         "]"}], "]"}]}], ";", "\[IndentingNewLine]", "result"}]}], "]"}]}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]"}], "Input",
+ CellChangeTimes->{{3.957687372998993*^9, 3.957687389388111*^9}, {
+  3.957687428609804*^9, 3.9576875253005676`*^9}, {3.957690001146738*^9, 
+  3.9576900126389866`*^9}, {3.964637490019558*^9, 3.9646375218403244`*^9}},
+ CellLabel->"In[1]:=",ExpressionUUID->"e9b63988-c18d-c644-a1d0-7acce4de1d57"],
+
+Cell["\<\
+In the next cell we initialize all the conditions for our environment such as \
+the ordering of the social dilemma payoffs (t > r > s > p for PD), as well as \
+the bounds for the discount factor d and the exploration parameter e .\
+\>", "Text",
+ CellChangeTimes->{{3.964701683809355*^9, 
+  3.964701691418833*^9}},ExpressionUUID->"6172c06a-7c01-5a4d-b791-\
+8d0b6caad380"],
+
+Cell[BoxData[
+ RowBox[{"\[IndentingNewLine]", 
+  RowBox[{"(*", 
+   RowBox[{"The", " ", "ordering", " ", "of", " ", "the", " ", 
+    RowBox[{"game", ".", " ", "The"}], " ", "first", " ", "entry", " ", "has",
+     " ", "to", " ", "be", " ", "a", " ", "total", " ", "order"}], "*)"}], 
+  "\[IndentingNewLine]", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"ordering", " ", "=", " ", 
+     RowBox[{"{", 
+      RowBox[{"t", ">", "r", ">", "p", ">", "s"}], "}"}]}], ";"}], 
+   "\[IndentingNewLine]", "\[IndentingNewLine]", 
+   RowBox[{"(*", 
+    RowBox[{"Drawing", " ", "restrictions"}], "*)"}], "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"drestrictions", " ", "=", " ", 
+     RowBox[{"Flatten", "[", 
+      RowBox[{"{", 
+       RowBox[{"ordering", ",", 
+        RowBox[{"0", "<", "d", "<", "1"}], ",", " ", 
+        RowBox[{"0", "<", "e", "<", "1"}], ",", 
+        RowBox[{"t", ">", "r"}], ",", 
+        RowBox[{"t", ">", "p"}], ",", 
+        RowBox[{"t", ">", "s"}], ",", 
+        RowBox[{"r", ">", "p"}], ",", 
+        RowBox[{"r", ">", "s"}], ",", 
+        RowBox[{"p", ">", "s"}]}], "}"}], "]"}]}], ";"}], 
+   "\[IndentingNewLine]"}]}]], "Input",
+ CellChangeTimes->{{3.957687559533228*^9, 3.957687559753374*^9}, {
+   3.9582018575879593`*^9, 3.9582018600820866`*^9}, {3.9582019242751884`*^9, 
+   3.958201925733404*^9}, {3.9582019740198536`*^9, 3.958201981684372*^9}, 
+   3.964636591669548*^9, {3.964637596020056*^9, 3.9646375965888977`*^9}, 
+   3.9646377228936615`*^9, {3.9647017015947075`*^9, 3.9647017186087112`*^9}},
+ CellLabel->"In[11]:=",ExpressionUUID->"0b25ee44-7c76-e743-bc1b-7aef72d8f381"],
+
+Cell["\<\
+Now we write the policy, observation, belief, and reward functions. These \
+functions are customizable based on the type of policy, state representation, \
+and social dilemma we want to solve for. For the TfT state space, the Obs[] \
+function is the observation which returns a 1 when the observation is the \
+previous action of agent 2. The belief function Belief[] returns the \
+probabiity of being in a specific state in the full space, given our \
+observation.\
+\>", "Text",
+ CellChangeTimes->{{3.9647019802538967`*^9, 3.9647020196026516`*^9}, {
+  3.9647023233053913`*^9, 
+  3.964702566839628*^9}},ExpressionUUID->"213d2852-63bb-c649-8e13-\
+7015fbf45bcb"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{
+   RowBox[{"Policy", "[", 
+    RowBox[{"observation_", ",", " ", "action_", ",", " ", "strat1_"}], "]"}],
+    ":=", "\[IndentingNewLine]", 
+   RowBox[{"Module", "[", 
+    RowBox[{
+     RowBox[{"{", "result", "}"}], ",", " ", 
+     RowBox[{"If", "[", 
+      RowBox[{
+       RowBox[{
+        RowBox[{"strat1", "[", 
+         RowBox[{"[", 
+          RowBox[{"observation", "+", "1"}], "]"}], "]"}], "==", "action"}], ",",
+        " ", 
+       RowBox[{"result", " ", "=", " ", 
+        RowBox[{"(", 
+         RowBox[{"1", "-", 
+          RowBox[{"e", "/", "2"}]}], ")"}]}], ",", " ", 
+       RowBox[{"result", " ", "=", " ", 
+        RowBox[{"e", "/", "2"}]}]}], "]"}]}], "]"}]}], "\[IndentingNewLine]", 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"Obs", "[", 
+    RowBox[{"state_", ",", " ", "obs_"}], "]"}], ":=", "\[IndentingNewLine]", 
+   RowBox[{"Module", "[", 
+    RowBox[{
+     RowBox[{"{", "result", "}"}], ",", 
+     RowBox[{
+      RowBox[{"If", "[", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"state", "[", 
+          RowBox[{"[", "2", "]"}], "]"}], "==", " ", "obs"}], ",", " ", 
+        RowBox[{"result", " ", "=", " ", "1"}], ",", " ", 
+        RowBox[{"result", " ", "=", " ", "0"}]}], "]"}], ";", " ", 
+      "result"}]}], "]"}]}], "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"Belief", "[", 
+    RowBox[{
+    "obs_", ",", " ", "state_", ",", " ", "strat1_", ",", " ", "strat2_"}], 
+    "]"}], ":=", "\[IndentingNewLine]", 
+   RowBox[{"Module", "[", 
+    RowBox[{
+     RowBox[{"{", "result", "}"}], ",", " ", 
+     RowBox[{"If", "[", 
+      RowBox[{
+       RowBox[{
+        RowBox[{"state", "[", 
+         RowBox[{"[", "2", "]"}], "]"}], "!=", " ", "obs"}], ",", " ", 
+       RowBox[{"result", " ", "=", " ", "0"}], ",", " ", 
+       RowBox[{"result", " ", "=", " ", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{
+           RowBox[{
+            RowBox[{"tftss", "[", 
+             RowBox[{"strat1", ",", " ", "strat2"}], "]"}], "[", 
+            RowBox[{"[", "3", "]"}], "]"}], "[", 
+           RowBox[{"[", 
+            RowBox[{"(", 
+             RowBox[{"1", "+", 
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"(", 
+                 RowBox[{"2", "*", 
+                  RowBox[{"state", "[", 
+                   RowBox[{"[", "1", "]"}], "]"}]}], ")"}], "+", 
+                RowBox[{"state", "[", 
+                 RowBox[{"[", "2", "]"}], "]"}]}], ")"}]}], ")"}], "]"}], 
+           "]"}], "/", 
+          RowBox[{"(", 
+           RowBox[{
+            RowBox[{
+             RowBox[{
+              RowBox[{"tftss", "[", 
+               RowBox[{"strat1", ",", " ", "strat2"}], "]"}], "[", 
+              RowBox[{"[", "3", "]"}], "]"}], "[", 
+             RowBox[{"[", 
+              RowBox[{"(", 
+               RowBox[{"1", "+", 
+                RowBox[{"(", 
+                 RowBox[{
+                  RowBox[{"(", 
+                   RowBox[{"2", "*", "0"}], ")"}], "+", 
+                  RowBox[{"state", "[", 
+                   RowBox[{"[", "2", "]"}], "]"}]}], ")"}]}], ")"}], "]"}], 
+             "]"}], "+", 
+            RowBox[{
+             RowBox[{
+              RowBox[{"tftss", "[", 
+               RowBox[{"strat1", ",", " ", "strat2"}], "]"}], "[", 
+              RowBox[{"[", "3", "]"}], "]"}], "[", 
+             RowBox[{"[", 
+              RowBox[{"(", 
+               RowBox[{"1", "+", 
+                RowBox[{"(", 
+                 RowBox[{
+                  RowBox[{"(", 
+                   RowBox[{"2", "*", "1"}], ")"}], "+", 
+                  RowBox[{"state", "[", 
+                   RowBox[{"[", "2", "]"}], "]"}]}], ")"}]}], ")"}], "]"}], 
+             "]"}]}], ")"}]}], ")"}]}]}], "]"}]}], "]"}]}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Reward", "[", 
+   RowBox[{"state_", ",", " ", "jointaction_", ",", " ", "newstate_"}], "]"}],
+   ":=", "\[IndentingNewLine]", 
+  RowBox[{"Module", "[", 
+   RowBox[{
+    RowBox[{"{", "result", "}"}], ",", " ", 
+    RowBox[{"Which", "[", 
+     RowBox[{
+      RowBox[{"newstate", " ", "==", " ", 
+       RowBox[{"{", 
+        RowBox[{"0", ",", "0"}], "}"}]}], ",", " ", 
+      RowBox[{"result", " ", "=", " ", 
+       RowBox[{"{", 
+        RowBox[{"p", ",", "p"}], "}"}]}], ",", "\[IndentingNewLine]", 
+      RowBox[{"newstate", " ", "==", " ", 
+       RowBox[{"{", 
+        RowBox[{"0", ",", "1"}], "}"}]}], ",", " ", 
+      RowBox[{"result", " ", "=", " ", 
+       RowBox[{"{", 
+        RowBox[{"t", ",", "s"}], "}"}]}], ",", "\[IndentingNewLine]", 
+      RowBox[{"newstate", " ", "==", " ", 
+       RowBox[{"{", 
+        RowBox[{"1", ",", "0"}], "}"}]}], ",", " ", 
+      RowBox[{"result", " ", "=", " ", 
+       RowBox[{"{", 
+        RowBox[{"s", ",", "t"}], "}"}]}], ",", "\[IndentingNewLine]", 
+      RowBox[{"newstate", " ", "==", " ", 
+       RowBox[{"{", 
+        RowBox[{"1", ",", "1"}], "}"}]}], ",", " ", 
+      RowBox[{"result", " ", "=", " ", 
+       RowBox[{"{", 
+        RowBox[{"r", ",", "r"}], "}"}]}]}], "]"}]}], "]"}]}]}], "Input",
+ CellChangeTimes->CompressedData["
+1:eJxTTMoPSmViYGCQAmIQHbP7nfXGmreOc57OswHRHFLsTiC65bM8mOa4vtYL
+TJ90CQDRO27uzwDRayqUakF0gdnTJhBdkuvcAqI/HOaeAaIfsFwD0y3xLAtA
+tMMW96UguuGC0lqweZ53N4LokJMx+8H0KvfDILrj1corIHrD3/1g+sKe8i8g
+egGDPPsmIM3Akc0Poh983S0Aouf80xAD0S+EboDplsfBciC6xm6+Cog+sZhD
+G0RL/CrVA9Emp+LNQfSat6udwOomvzLaAqQDjn8xBtEcqolhIFpA5F08iDZ4
+NDUNRNesMSkD0TdCtWtB9Al78ToQ/cX8adBWIJ3B+ywTRPu8eNGRWAt0D0dN
+F4iWiX7u/6nzreMZjucBIFon6dkMli6gfYbvZ4LoJxu4OwWBtI9mHpi+8+HP
+AhD9pdJ3IYgGAFb93v8=
+  "],ExpressionUUID->"eb4b393e-73a3-ae49-acb2-233b53ccd10f"],
+
+Cell["\<\
+The remaining functions will remain the same regardless of the state space or \
+policy types. Here we map the transition function and the reward function to \
+the Full states using the belief state and then calculate the expected reward \
+given an action and an observation and the expected reward in an observation \
+state. We do the same for the transition function between observations by \
+mapping it to the belief state and then using the policies of both agents to \
+map it back to the observation space.\
+\>", "Text",
+ CellChangeTimes->{{3.9647025795010777`*^9, 3.9647027509607964`*^9}, {
+  3.964702850708456*^9, 
+  3.9647028885793858`*^9}},ExpressionUUID->"5349e1ff-a0ef-2c42-80ad-\
+8c408ffa89ec"],
+
+Cell[BoxData[
+ RowBox[{"\[IndentingNewLine]", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"Trans", "[", 
+     RowBox[{"state_", ",", " ", "jointaction_", ",", " ", "newstate_"}], 
+     "]"}], ":=", "\[IndentingNewLine]", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", "result", "}"}], ",", " ", 
+      RowBox[{"If", "[", 
+       RowBox[{
+        RowBox[{"jointaction", " ", "==", " ", "newstate"}], ",", " ", 
+        RowBox[{"result", " ", "=", " ", "1"}], ",", " ", 
+        RowBox[{"result", " ", "=", " ", "0"}]}], "]"}]}], "]"}]}], 
+   "\[IndentingNewLine]", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"StatePolicy", "[", 
+     RowBox[{"state_", ",", " ", "action_", ",", " ", "strat1_"}], "]"}], ":=",
+     "\[IndentingNewLine]", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", "result", "}"}], ",", " ", 
+      RowBox[{"Sum", "[", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Obs", "[", 
+          RowBox[{"state", ",", "i"}], "]"}], "*", 
+         RowBox[{"Policy", "[", 
+          RowBox[{"i", ",", "action", ",", " ", "strat1"}], "]"}]}], ",", " ", 
+        RowBox[{"{", 
+         RowBox[{"i", ",", "0", ",", "1"}], "}"}]}], "]"}]}], "]"}]}], 
+   "\[IndentingNewLine]", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"RewardAction", "[", 
+     RowBox[{
+     "obs_", ",", " ", "action_", ",", " ", "strat1_", ",", "  ", "strat2_"}],
+      "]"}], ":=", "\[IndentingNewLine]", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", "result", "}"}], ",", " ", 
+      RowBox[{"Sum", "[", 
+       RowBox[{
+        RowBox[{"Sum", "[", 
+         RowBox[{
+          RowBox[{"Sum", "[", 
+           RowBox[{
+            RowBox[{
+             RowBox[{"Belief", "[", 
+              RowBox[{"obs", ",", " ", 
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", "strat1", ",", 
+               "strat2"}], "]"}], "*", 
+             RowBox[{"StatePolicy", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", "aj", ",", 
+               "strat2"}], "]"}], "*", 
+             RowBox[{"Trans", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", 
+               RowBox[{"{", 
+                RowBox[{"action", ",", "aj"}], "}"}], ",", 
+               RowBox[{"{", 
+                RowBox[{"s21", ",", "s22"}], "}"}]}], "]"}], "*", 
+             RowBox[{
+              RowBox[{"Reward", "[", 
+               RowBox[{
+                RowBox[{"{", 
+                 RowBox[{"s11", ",", "s12"}], "}"}], ",", 
+                RowBox[{"{", 
+                 RowBox[{"action", ",", "aj"}], "}"}], ",", 
+                RowBox[{"{", 
+                 RowBox[{"s21", ",", "s22"}], "}"}]}], "]"}], "[", 
+              RowBox[{"[", "1", "]"}], "]"}]}], ",", " ", 
+            RowBox[{"{", 
+             RowBox[{"s21", ",", "0", ",", "1"}], "}"}], ",", 
+            RowBox[{"{", 
+             RowBox[{"s22", ",", "0", ",", "1"}], "}"}]}], "]"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"aj", ",", "0", ",", "1"}], "}"}]}], "]"}], ",", 
+        RowBox[{"{", 
+         RowBox[{"s11", ",", "0", ",", "1"}], "}"}], ",", 
+        RowBox[{"{", 
+         RowBox[{"s12", ",", "0", ",", "1"}], "}"}]}], "]"}]}], "]"}]}], 
+   "\[IndentingNewLine]", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"TransObsAction", "[", 
+     RowBox[{
+     "obs_", ",", " ", "action_", ",", " ", "obs2_", ",", " ", "strat1_", ",",
+       "  ", "strat2_"}], "]"}], ":=", "\[IndentingNewLine]", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", "result", "}"}], ",", " ", 
+      RowBox[{"Sum", "[", 
+       RowBox[{
+        RowBox[{"Sum", "[", 
+         RowBox[{
+          RowBox[{"Sum", "[", 
+           RowBox[{
+            RowBox[{
+             RowBox[{"Belief", "[", 
+              RowBox[{"obs", ",", " ", 
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", "strat1", ",", 
+               "strat2"}], "]"}], "*", 
+             RowBox[{"StatePolicy", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", "aj", ",", 
+               "strat2"}], "]"}], "*", 
+             RowBox[{"Trans", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", 
+               RowBox[{"{", 
+                RowBox[{"action", ",", "aj"}], "}"}], ",", 
+               RowBox[{"{", 
+                RowBox[{"s21", ",", "s22"}], "}"}]}], "]"}], "*", 
+             RowBox[{"Obs", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s21", ",", "s22"}], "}"}], ",", "obs2"}], "]"}]}], ",",
+             " ", 
+            RowBox[{"{", 
+             RowBox[{"s21", ",", "0", ",", "1"}], "}"}], ",", 
+            RowBox[{"{", 
+             RowBox[{"s22", ",", "0", ",", "1"}], "}"}]}], "]"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"aj", ",", "0", ",", "1"}], "}"}]}], "]"}], ",", 
+        RowBox[{"{", 
+         RowBox[{"s11", ",", "0", ",", "1"}], "}"}], ",", 
+        RowBox[{"{", 
+         RowBox[{"s12", ",", "0", ",", "1"}], "}"}]}], "]"}]}], "]"}]}], 
+   "\[IndentingNewLine]", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"TransAverage", "[", 
+     RowBox[{
+     "obs_", ",", " ", "obs2_", ",", " ", "strat1_", ",", "  ", "strat2_"}], 
+     "]"}], ":=", "\[IndentingNewLine]", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", "result", "}"}], ",", " ", 
+      RowBox[{"Sum", "[", 
+       RowBox[{
+        RowBox[{"Sum", "[", 
+         RowBox[{
+          RowBox[{"Sum", "[", 
+           RowBox[{
+            RowBox[{
+             RowBox[{
+              RowBox[{"Belief", "[", 
+               RowBox[{"obs", ",", " ", 
+                RowBox[{"{", 
+                 RowBox[{"s11", ",", "s12"}], "}"}], ",", "strat1", ",", 
+                "strat2"}], "]"}], "^", "2"}], "*", 
+             RowBox[{"StatePolicy", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", "aj1", ",", 
+               "strat1"}], "]"}], "*", 
+             RowBox[{"StatePolicy", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", "aj2", ",", 
+               "strat2"}], "]"}], "*", 
+             RowBox[{
+              RowBox[{"Trans", "[", 
+               RowBox[{
+                RowBox[{"{", 
+                 RowBox[{"s11", ",", "s12"}], "}"}], ",", 
+                RowBox[{"{", 
+                 RowBox[{"aj1", ",", "aj2"}], "}"}], ",", 
+                RowBox[{"{", 
+                 RowBox[{"s21", ",", "s22"}], "}"}]}], "]"}], "^", "2"}], "*", 
+             RowBox[{
+              RowBox[{"Obs", "[", 
+               RowBox[{
+                RowBox[{"{", 
+                 RowBox[{"s21", ",", "s22"}], "}"}], ",", "obs2"}], "]"}], "^",
+               "2"}]}], ",", " ", 
+            RowBox[{"{", 
+             RowBox[{"s21", ",", "0", ",", "1"}], "}"}], ",", 
+            RowBox[{"{", 
+             RowBox[{"s22", ",", "0", ",", "1"}], "}"}]}], "]"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"aj1", ",", "0", ",", "1"}], "}"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"aj2", ",", "0", ",", "1"}], "}"}]}], "]"}], ",", 
+        RowBox[{"{", 
+         RowBox[{"s11", ",", "0", ",", "1"}], "}"}], ",", 
+        RowBox[{"{", 
+         RowBox[{"s12", ",", "0", ",", "1"}], "}"}]}], "]"}]}], "]"}]}], 
+   "\[IndentingNewLine]", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"RewardAverage", "[", 
+     RowBox[{"obs_", ",", " ", "strat1_", ",", "  ", "strat2_"}], "]"}], ":=",
+     "\[IndentingNewLine]", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", "result", "}"}], ",", " ", 
+      RowBox[{"Sum", "[", 
+       RowBox[{
+        RowBox[{"Sum", "[", 
+         RowBox[{
+          RowBox[{"Sum", "[", 
+           RowBox[{
+            RowBox[{
+             RowBox[{
+              RowBox[{"Belief", "[", 
+               RowBox[{"obs", ",", " ", 
+                RowBox[{"{", 
+                 RowBox[{"s11", ",", "s12"}], "}"}], ",", "strat1", ",", 
+                "strat2"}], "]"}], "^", "2"}], "*", 
+             RowBox[{"StatePolicy", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", "aj1", ",", 
+               "strat1"}], "]"}], "*", 
+             RowBox[{"StatePolicy", "[", 
+              RowBox[{
+               RowBox[{"{", 
+                RowBox[{"s11", ",", "s12"}], "}"}], ",", "aj2", ",", 
+               "strat2"}], "]"}], "*", 
+             RowBox[{
+              RowBox[{"Trans", "[", 
+               RowBox[{
+                RowBox[{"{", 
+                 RowBox[{"s11", ",", "s12"}], "}"}], ",", 
+                RowBox[{"{", 
+                 RowBox[{"aj1", ",", "aj2"}], "}"}], ",", 
+                RowBox[{"{", 
+                 RowBox[{"s21", ",", "s22"}], "}"}]}], "]"}], "^", "2"}], "*", 
+             RowBox[{
+              RowBox[{
+               RowBox[{"Reward", "[", 
+                RowBox[{
+                 RowBox[{"{", 
+                  RowBox[{"s11", ",", "s12"}], "}"}], ",", 
+                 RowBox[{"{", 
+                  RowBox[{"aj1", ",", "aj2"}], "}"}], ",", 
+                 RowBox[{"{", 
+                  RowBox[{"s21", ",", "s22"}], "}"}]}], "]"}], "[", 
+               RowBox[{"[", "1", "]"}], "]"}], "^", "2"}]}], ",", " ", 
+            RowBox[{"{", 
+             RowBox[{"s21", ",", "0", ",", "1"}], "}"}], ",", 
+            RowBox[{"{", 
+             RowBox[{"s22", ",", "0", ",", "1"}], "}"}]}], "]"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"aj1", ",", "0", ",", "1"}], "}"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"aj2", ",", "0", ",", "1"}], "}"}]}], "]"}], ",", 
+        RowBox[{"{", 
+         RowBox[{"s11", ",", "0", ",", "1"}], "}"}], ",", 
+        RowBox[{"{", 
+         RowBox[{"s12", ",", "0", ",", "1"}], "}"}]}], "]"}]}], "]"}]}], 
+   "\[IndentingNewLine]", "\[IndentingNewLine]"}]}]], "Input",
+ CellChangeTimes->{{3.9576949089799004`*^9, 3.957694942314207*^9}, {
+   3.957694996347603*^9, 3.957695011590439*^9}, {3.9576950649249897`*^9, 
+   3.957695128181608*^9}, {3.9576954181804256`*^9, 3.957695438466524*^9}, {
+   3.957695479290621*^9, 3.9576955663987675`*^9}, 3.957695625955229*^9, {
+   3.9580498256033993`*^9, 3.9580499642189198`*^9}, {3.9580503241965256`*^9, 
+   3.958050346159416*^9}, {3.9580504086834126`*^9, 3.958050519607643*^9}, 
+   3.9580505871018867`*^9, {3.9580508890628777`*^9, 3.9580509967466545`*^9}, {
+   3.958051056501688*^9, 3.958051128173321*^9}, {3.958051167206669*^9, 
+   3.958051168120409*^9}, {3.9580512076255608`*^9, 3.9580514701104965`*^9}, {
+   3.9580515408489723`*^9, 3.9580515520197353`*^9}, {3.958051597702633*^9, 
+   3.958051645236637*^9}, {3.9580528344252872`*^9, 3.958052860741665*^9}, {
+   3.9580529116194134`*^9, 3.95805300335013*^9}, {3.958053045633917*^9, 
+   3.958053081247999*^9}, {3.958130883254423*^9, 3.9581309451771317`*^9}, {
+   3.9581310217399654`*^9, 3.958131213283411*^9}, {3.9581316208394775`*^9, 
+   3.958131848325865*^9}, {3.96470196948172*^9, 
+   3.964701972557699*^9}},ExpressionUUID->"9702cbe6-7cab-db4c-92a9-\
+5e5b436337b5"],
+
+Cell["\<\
+The result function calculates all the best - response conditions for a \
+single strategy . It takes two inputs i_ and strats_. i_ is the strategy we \
+want to check the BRs for and strats_ is set of all possible strategies in \
+the state space .
+   
+   We compare the subject i_ for each element in strat_ and look for the \
+condition where strat_[j] is BR for i, this function then repeats this for \
+all elements in strat_.
+
+For a given i_ and strat_[j] pair in the loop, we first start by ordering the \
+Q - values . Q1 are ordered based on strat_[j] and Q2 on i_. We then input \
+these orderings into the Bellman equations written below to solve for all the \
+Q values . Finally, we use the reduce function to check for self - \
+consistency by checking under what conditions do the Q - values calculated \
+preserve the original orderings of Q in strat_[j] . These conditions are \
+added to the output array . If the condition outputs False, this means that \
+strat_[j] was never a BR for i_ and this is not included in the array .
+  \
+\>", "Text",
+ CellChangeTimes->{{3.9647029174734936`*^9, 3.964702921718443*^9}, {
+  3.96470411715794*^9, 
+  3.964704125269354*^9}},ExpressionUUID->"8e53a89f-356e-6048-b53a-\
+02968863a540"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"result", "[", 
+     RowBox[{"i_", ",", " ", "strats_"}], "]"}], ":=", "\[IndentingNewLine]", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"input", " ", "=", " ", "i"}], ",", " ", 
+        RowBox[{"str", " ", "=", " ", "strats"}]}], "}"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"output", " ", "=", " ", 
+        RowBox[{"{", "}"}]}], ";", "\[IndentingNewLine]", 
+       RowBox[{"transpoints", " ", "=", " ", 
+        RowBox[{"{", "}"}]}], ";", "\[IndentingNewLine]", 
+       RowBox[{"(*", 
+        RowBox[{
+         RowBox[{
+         "Check", " ", "every", " ", "strat", " ", "to", " ", "see", " ", 
+          "if", " ", "it", " ", "is", " ", "a", " ", "best"}], "-", 
+         "response"}], "*)"}], "\[IndentingNewLine]", 
+       RowBox[{"Do", "[", 
+        RowBox[{
+         RowBox[{"{", "\[IndentingNewLine]", 
+          RowBox[{
+           RowBox[{"strat", " ", "=", " ", 
+            RowBox[{"str", "[", 
+             RowBox[{"[", "j", "]"}], "]"}]}], ";", "\[IndentingNewLine]", 
+           RowBox[{"assumptions", " ", "=", " ", 
+            RowBox[{"Flatten", "[", 
+             RowBox[{"{", "drestrictions", "}"}], "]"}]}], ";", 
+           "\[IndentingNewLine]", "\[IndentingNewLine]", 
+           RowBox[{"(*", 
+            RowBox[{"Solve", " ", "the", " ", "Bellman", " ", "equations"}], 
+            "*)"}], "\[IndentingNewLine]", 
+           RowBox[{"Assuming", "[", 
+            RowBox[{"assumptions", ",", "\[IndentingNewLine]", 
+             RowBox[{"{", 
+              RowBox[{
+               RowBox[{"eq1", " ", "=", " ", 
+                RowBox[{"v0", " ", "==", " ", 
+                 RowBox[{"Simplify", "[", 
+                  RowBox[{
+                   RowBox[{
+                    RowBox[{"(", 
+                    RowBox[{"1", "-", "d"}], ")"}], "*", 
+                    RowBox[{"RewardAverage", "[", 
+                    RowBox[{"0", ",", "strat", ",", "input"}], "]"}]}], "+", 
+                   RowBox[{"d", "*", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"TransAverage", "[", 
+                    RowBox[{"0", ",", "0", ",", "strat", ",", "input"}], 
+                    "]"}], "*", "v0"}], "+", 
+                    RowBox[{
+                    RowBox[{"TransAverage", "[", 
+                    RowBox[{"0", ",", "1", ",", "strat", ",", "input"}], 
+                    "]"}], "*", "v1"}]}], ")"}]}]}], "]"}]}]}], ",", 
+               "\[IndentingNewLine]", 
+               RowBox[{"eq2", " ", "=", " ", 
+                RowBox[{"v1", " ", "==", " ", 
+                 RowBox[{"Simplify", "[", 
+                  RowBox[{
+                   RowBox[{
+                    RowBox[{"(", 
+                    RowBox[{"1", "-", "d"}], ")"}], "*", 
+                    RowBox[{"RewardAverage", "[", 
+                    RowBox[{"1", ",", "strat", ",", "input"}], "]"}]}], "+", 
+                   RowBox[{"d", "*", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"TransAverage", "[", 
+                    RowBox[{"1", ",", "0", ",", "strat", ",", "input"}], 
+                    "]"}], "*", "v0"}], "+", 
+                    RowBox[{
+                    RowBox[{"TransAverage", "[", 
+                    RowBox[{"1", ",", "1", ",", "strat", ",", "input"}], 
+                    "]"}], "*", "v1"}]}], ")"}]}]}], "]"}]}]}]}], 
+              "\[IndentingNewLine]", "}"}]}], "]"}], ";", 
+           "\[IndentingNewLine]", 
+           RowBox[{"sol1", "=", 
+            RowBox[{"Solve", "[", 
+             RowBox[{
+              RowBox[{"{", 
+               RowBox[{"eq1", ",", "eq2"}], "}"}], ",", 
+              RowBox[{"{", 
+               RowBox[{"v0", ",", "v1"}], "}"}]}], "]"}]}], ";", 
+           "\[IndentingNewLine]", 
+           RowBox[{"Assuming", "[", 
+            RowBox[{"assumptions", ",", "\[IndentingNewLine]", 
+             RowBox[{"{", 
+              RowBox[{
+               RowBox[{"q1", " ", "=", " ", 
+                RowBox[{"Simplify", "[", 
+                 RowBox[{
+                  RowBox[{
+                   RowBox[{"(", 
+                    RowBox[{"1", "-", "d"}], ")"}], "*", 
+                   RowBox[{"RewardAction", "[", 
+                    RowBox[{"0", ",", "0", ",", "strat", ",", "input"}], 
+                    "]"}]}], "+", 
+                  RowBox[{"d", "*", 
+                   RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"TransObsAction", "[", 
+                    RowBox[{
+                    "0", ",", "0", ",", "0", ",", "strat", ",", "input"}], 
+                    "]"}], "*", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"sol1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}], "+", 
+                    RowBox[{
+                    RowBox[{"TransObsAction", "[", 
+                    RowBox[{
+                    "0", ",", "0", ",", "1", ",", "strat", ",", "input"}], 
+                    "]"}], "*", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"sol1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}]}], ")"}]}]}], "]"}]}], ",",
+                "\[IndentingNewLine]", 
+               RowBox[{"q2", " ", "=", " ", 
+                RowBox[{"Simplify", "[", 
+                 RowBox[{
+                  RowBox[{
+                   RowBox[{"(", 
+                    RowBox[{"1", "-", "d"}], ")"}], "*", 
+                   RowBox[{"RewardAction", "[", 
+                    RowBox[{"0", ",", "1", ",", "strat", ",", "input"}], 
+                    "]"}]}], "+", 
+                  RowBox[{"d", "*", 
+                   RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"TransObsAction", "[", 
+                    RowBox[{
+                    "0", ",", "1", ",", "0", ",", "strat", ",", "input"}], 
+                    "]"}], "*", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"sol1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}], "+", 
+                    RowBox[{
+                    RowBox[{"TransObsAction", "[", 
+                    RowBox[{
+                    "0", ",", "1", ",", "1", ",", "strat", ",", "input"}], 
+                    "]"}], "*", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"sol1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}]}], ")"}]}]}], "]"}]}], ",",
+                "\[IndentingNewLine]", 
+               RowBox[{"q3", " ", "=", " ", 
+                RowBox[{"Simplify", "[", 
+                 RowBox[{
+                  RowBox[{
+                   RowBox[{"(", 
+                    RowBox[{"1", "-", "d"}], ")"}], "*", 
+                   RowBox[{"RewardAction", "[", 
+                    RowBox[{"1", ",", "0", ",", "strat", ",", "input"}], 
+                    "]"}]}], "+", 
+                  RowBox[{"d", "*", 
+                   RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"TransObsAction", "[", 
+                    RowBox[{
+                    "1", ",", "0", ",", "0", ",", "strat", ",", "input"}], 
+                    "]"}], "*", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"sol1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}], "+", 
+                    RowBox[{
+                    RowBox[{"TransObsAction", "[", 
+                    RowBox[{
+                    "1", ",", "0", ",", "1", ",", "strat", ",", "input"}], 
+                    "]"}], "*", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"sol1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}]}], ")"}]}]}], "]"}]}], ",",
+                "\[IndentingNewLine]", 
+               RowBox[{"q4", " ", "=", " ", 
+                RowBox[{"Simplify", "[", 
+                 RowBox[{
+                  RowBox[{
+                   RowBox[{"(", 
+                    RowBox[{"1", "-", "d"}], ")"}], "*", 
+                   RowBox[{"RewardAction", "[", 
+                    RowBox[{"1", ",", "1", ",", "strat", ",", "input"}], 
+                    "]"}]}], "+", 
+                  RowBox[{"d", "*", 
+                   RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"TransObsAction", "[", 
+                    RowBox[{
+                    "1", ",", "1", ",", "0", ",", "strat", ",", "input"}], 
+                    "]"}], "*", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"sol1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}], "+", 
+                    RowBox[{
+                    RowBox[{"TransObsAction", "[", 
+                    RowBox[{
+                    "1", ",", "1", ",", "1", ",", "strat", ",", "input"}], 
+                    "]"}], "*", 
+                    RowBox[{
+                    RowBox[{
+                    RowBox[{"sol1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}], "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}]}], ")"}]}]}], "]"}]}]}], 
+              "\[IndentingNewLine]", "}"}]}], "]"}], ";", 
+           "\[IndentingNewLine]", "\[IndentingNewLine]", 
+           RowBox[{"(*", 
+            RowBox[{
+             RowBox[{
+             "Check", " ", "when", " ", "strat", " ", "is", " ", "best"}], "-",
+              "response"}], "*)"}], "\[IndentingNewLine]", 
+           RowBox[{"conditions1", "=", 
+            RowBox[{"Simplify", "[", 
+             RowBox[{"Assuming", "[", 
+              RowBox[{"assumptions", ",", 
+               RowBox[{"{", 
+                RowBox[{
+                 RowBox[{"Simplify", "[", 
+                  RowBox[{"If", "[", 
+                   RowBox[{
+                    RowBox[{
+                    RowBox[{"strat", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "==", "0"}], ",", 
+                    RowBox[{"q1", ">", "q2"}], ",", 
+                    RowBox[{"q1", "<", "q2"}]}], "]"}], "]"}], " ", ",", 
+                 RowBox[{"If", "[", 
+                  RowBox[{
+                   RowBox[{
+                    RowBox[{"strat", "[", 
+                    RowBox[{"[", "2", "]"}], "]"}], "==", "0"}], ",", 
+                   RowBox[{"q3", ">", "q4"}], ",", " ", 
+                   RowBox[{"q3", "<", "q4"}]}], "]"}]}], "}"}]}], "]"}], 
+             "]"}]}], ";", "\[IndentingNewLine]", 
+           RowBox[{"possiblebase", "=", 
+            RowBox[{"Simplify", "[", 
+             RowBox[{
+              RowBox[{"conditions1", "[", 
+               RowBox[{"[", "1", "]"}], "]"}], "&&", 
+              RowBox[{"conditions1", "[", 
+               RowBox[{"[", "2", "]"}], "]"}]}], "]"}]}], ";", 
+           "\[IndentingNewLine]", 
+           RowBox[{"possiblebase1", "=", 
+            RowBox[{"Assuming", "[", 
+             RowBox[{
+              RowBox[{"{", "assumptions", "}"}], ",", 
+              RowBox[{"Simplify", "[", 
+               RowBox[{"Reduce", "[", 
+                RowBox[{"possiblebase", "&&", 
+                 RowBox[{"r", "<", "t"}], "&&", 
+                 RowBox[{"r", ">", "p"}], "&&", 
+                 RowBox[{"r", ">", "s"}], "&&", 
+                 RowBox[{"t", ">", "p"}], "&&", 
+                 RowBox[{"t", ">", "s"}], "&&", 
+                 RowBox[{"p", ">", "s"}], "&&", 
+                 RowBox[{"0", "<", "d", "<", "1"}], "&&", 
+                 RowBox[{"0", "<", "e", "<", "1"}]}], "]"}], "]"}]}], "]"}]}],
+            ";", "\[IndentingNewLine]", 
+           RowBox[{"If", "[", 
+            RowBox[{"possiblebase1", " ", ",", " ", 
+             RowBox[{"AppendTo", "[", 
+              RowBox[{"output", ",", 
+               RowBox[{"{", 
+                RowBox[{
+                 RowBox[{
+                  RowBox[{"FromDigits", "[", 
+                   RowBox[{"i", ",", "2"}], "]"}], "->", 
+                  RowBox[{"j", "-", "1"}]}], ",", "True"}], "}"}]}], "]"}], ",",
+              ",", 
+             RowBox[{
+              RowBox[{"possible", " ", "=", " ", 
+               RowBox[{"Assuming", "[", 
+                RowBox[{
+                 RowBox[{"{", "assumptions", "}"}], ",", 
+                 RowBox[{"Simplify", "[", 
+                  RowBox[{
+                   RowBox[{"conditions1", "[", 
+                    RowBox[{"[", "1", "]"}], "]"}], "&&", 
+                   RowBox[{"conditions1", "[", 
+                    RowBox[{"[", "2", "]"}], "]"}]}], "]"}]}], "]"}]}], ";", 
+              "\[IndentingNewLine]", 
+              RowBox[{"If", "[", 
+               RowBox[{
+                RowBox[{
+                 RowBox[{"(", 
+                  RowBox[{"possible", " ", "===", " ", "False"}], ")"}], "==",
+                  "False"}], " ", ",", " ", 
+                RowBox[{"AppendTo", "[", 
+                 RowBox[{"output", ",", 
+                  RowBox[{"{", 
+                   RowBox[{
+                    RowBox[{
+                    RowBox[{"FromDigits", "[", 
+                    RowBox[{"i", ",", "2"}], "]"}], "->", 
+                    RowBox[{"j", "-", "1"}]}], ",", 
+                    RowBox[{"Simplify", "[", "possible", "]"}]}], "}"}]}], 
+                 "]"}]}], "]"}]}]}], "]"}]}], "\[IndentingNewLine]", "}"}], ",", 
+         RowBox[{"{", 
+          RowBox[{"j", ",", "1", ",", "4"}], "}"}]}], "]"}], ";", 
+       "\[IndentingNewLine]", "output"}]}], "\[IndentingNewLine]", "]"}]}], 
+   ";"}], "\[IndentingNewLine]"}]], "Input",
+ CellChangeTimes->{{3.958148415801855*^9, 3.958148428268215*^9}, 
+   3.9581485153976593`*^9, {3.9581486289635563`*^9, 3.9581486683272057`*^9}, {
+   3.9581487101960278`*^9, 3.958148903506571*^9}, {3.958149060493658*^9, 
+   3.9581491223877373`*^9}, {3.958149612250374*^9, 3.9581496565532055`*^9}, {
+   3.9581514058891754`*^9, 3.958151513124956*^9}, {3.958151546584999*^9, 
+   3.958151707714859*^9}, {3.9581517803411064`*^9, 3.9581518042446384`*^9}, {
+   3.9581518458869*^9, 3.9581519145928936`*^9}, 3.958201354517603*^9, 
+   3.958201427322693*^9, {3.958201521390665*^9, 3.958201567289831*^9}, {
+   3.958620215023777*^9, 3.958620271187311*^9}, {3.9586675096378517`*^9, 
+   3.9586675221634007`*^9}, {3.958667620558157*^9, 3.9586676207590294`*^9}, {
+   3.958667657123169*^9, 3.958667677370035*^9}, 3.9586677127544556`*^9, {
+   3.958667749578264*^9, 3.9586677508362083`*^9}, 3.9611647739860954`*^9, {
+   3.961167356458502*^9, 3.9611674373193893`*^9}, {3.9611675220095253`*^9, 
+   3.961167558330364*^9}, {3.9611675912003136`*^9, 3.961167619062113*^9}, {
+   3.9611676670420914`*^9, 3.961167813733341*^9}, {3.9611678600954647`*^9, 
+   3.961167864628212*^9}, {3.9611679097449875`*^9, 3.9611679114329605`*^9}, {
+   3.961167942950941*^9, 3.9611679444547195`*^9}, {3.961169471910452*^9, 
+   3.961169474462801*^9}, {3.9611695117141705`*^9, 3.961169538037216*^9}, {
+   3.961169608130516*^9, 3.9611696218088512`*^9}, {3.9611696606180267`*^9, 
+   3.961169670959774*^9}, {3.9619346874468822`*^9, 3.961934693238928*^9}, {
+   3.9619347618963795`*^9, 3.9619348503412647`*^9}, {3.964638820756735*^9, 
+   3.9646388878281975`*^9}, {3.96467161827833*^9, 3.964671673528713*^9}, {
+   3.96467195065423*^9, 3.9646721394889545`*^9}, {3.964672177601631*^9, 
+   3.9646721981544857`*^9}, {3.964672233531025*^9, 3.9646722410586147`*^9}, {
+   3.964672337039448*^9, 3.9646724243898563`*^9}, {3.9646724559420567`*^9, 
+   3.964672500458847*^9}, {3.964672598169262*^9, 3.964672599753559*^9}, {
+   3.9646726807792854`*^9, 3.964672692130121*^9}, {3.9646740933900127`*^9, 
+   3.9646741058324184`*^9}, {3.9646741625543175`*^9, 
+   3.9646741901737328`*^9}, {3.964674246724169*^9, 3.964674266835886*^9}, {
+   3.9646744254965916`*^9, 3.9646744370463543`*^9}, {3.964674523916853*^9, 
+   3.964674534752325*^9}, {3.9646746035947227`*^9, 3.964674657571726*^9}, {
+   3.964674902337164*^9, 3.964674936886589*^9}, {3.9646750012975826`*^9, 
+   3.964675036656008*^9}, {3.964675160724598*^9, 3.9646751868504143`*^9}, {
+   3.964675231653572*^9, 3.964675256695101*^9}, 3.964675307515854*^9, 
+   3.9646781855533257`*^9},
+ CellLabel->"In[23]:=",ExpressionUUID->"47e01374-83ed-5d40-a428-6c2aa4dbc36a"],
+
+Cell["\<\
+In this final cell, we simply write the strats set based on our state space \
+choice to enter into the result[] function . the transition set then loops \
+over all elements in strat, entering them individually as inputs into the \
+result[] function to get the BR conditions for all strategies . We finally \
+display this result in a table .\
+\>", "Text",
+ CellChangeTimes->{{3.964702950978508*^9, 
+  3.96470295619689*^9}},ExpressionUUID->"5649e49c-faa1-a644-a614-\
+0073a10ede1d"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{
+   RowBox[{"strats", " ", "=", " ", 
+    RowBox[{"Table", "[", " ", 
+     RowBox[{
+      RowBox[{"Join", "[", 
+       RowBox[{
+        RowBox[{"ConstantArray", "[", 
+         RowBox[{"0", ",", 
+          RowBox[{"2", "-", 
+           RowBox[{"Length", "[", 
+            RowBox[{"IntegerDigits", "[", 
+             RowBox[{"i", ",", "2"}], "]"}], "]"}]}]}], "]"}], ",", 
+        RowBox[{"IntegerDigits", "[", 
+         RowBox[{"i", ",", "2"}], "]"}]}], "]"}], ",", 
+      RowBox[{"{", 
+       RowBox[{"i", ",", "0", ",", "3"}], "}"}]}], "]"}]}], ";"}], 
+  "\[IndentingNewLine]", "\[IndentingNewLine]", 
+  RowBox[{"(*", 
+   RowBox[{
+    RowBox[{"All", " ", "best"}], "-", "responses"}], "*)"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"transitions", " ", "=", " ", 
+    RowBox[{"Table", "[", 
+     RowBox[{
+      RowBox[{"result", "[", 
+       RowBox[{
+        RowBox[{"strats", "[", 
+         RowBox[{"[", "i", "]"}], "]"}], ",", "strats"}], "]"}], ",", 
+      RowBox[{"{", 
+       RowBox[{"i", ",", "1", ",", "4"}], "}"}]}], "]"}]}], ";"}], 
+  "\[IndentingNewLine]", "\[IndentingNewLine]", 
+  RowBox[{"(*", 
+   RowBox[{
+    RowBox[{"Grid", " ", "of", " ", "strategies", " ", "and", " ", "best"}], "-",
+     "responses"}], "*)"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"grid", " ", "=", " ", 
+   RowBox[{"Table", "[", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"FromDigits", "[", 
+        RowBox[{
+         RowBox[{"strats", "[", 
+          RowBox[{"[", "i", "]"}], "]"}], ",", "2"}], "]"}], ",", " ", 
+       RowBox[{"strats", "[", 
+        RowBox[{"[", "i", "]"}], "]"}], ",", 
+       RowBox[{"transitions", "[", 
+        RowBox[{"[", "i", "]"}], "]"}]}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"i", ",", "1", ",", "4"}], "}"}]}], "]"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"Grid", "[", 
+  RowBox[{"grid", ",", 
+   RowBox[{"Frame", "\[Rule]", "All"}]}], "]"}]}], "Input",
+ CellChangeTimes->{{3.9646717706996994`*^9, 3.9646717723599834`*^9}, {
+  3.964675311019068*^9, 3.9646753204994125`*^9}},
+ CellLabel->"In[24]:=",ExpressionUUID->"c8626f26-d254-6a4b-ae2f-33241afb2462"],
+
+Cell[BoxData[
+ TagBox[GridBox[{
+    {"0", 
+     RowBox[{"{", 
+      RowBox[{"0", ",", "0"}], "}"}], 
+     RowBox[{"{", 
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"0", "\[Rule]", "0"}], ",", "True"}], "}"}], "}"}]},
+    {"1", 
+     RowBox[{"{", 
+      RowBox[{"0", ",", "1"}], "}"}], 
+     RowBox[{"{", 
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"1", "\[Rule]", "0"}], ",", "True"}], "}"}], "}"}]},
+    {"2", 
+     RowBox[{"{", 
+      RowBox[{"1", ",", "0"}], "}"}], 
+     RowBox[{"{", 
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"2", "\[Rule]", "0"}], ",", "True"}], "}"}], "}"}]},
+    {"3", 
+     RowBox[{"{", 
+      RowBox[{"1", ",", "1"}], "}"}], 
+     RowBox[{"{", 
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"3", "\[Rule]", "0"}], ",", "True"}], "}"}], "}"}]}
+   },
+   AutoDelete->False,
+   GridBoxFrame->{"Columns" -> {{True}}, "Rows" -> {{True}}},
+   GridBoxItemSize->{"Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+  "Grid"]], "Output",
+ CellChangeTimes->{
+  3.9646390242238903`*^9, {3.9646717457606773`*^9, 3.9646717739683895`*^9}, 
+   3.964671961816864*^9, 3.964672004241148*^9, 3.9646721441747017`*^9, {
+   3.9646721878606567`*^9, 3.9646722019393215`*^9}, 3.9646722453721485`*^9, {
+   3.9646724339087677`*^9, 3.96467250459235*^9}, 3.964672603535343*^9, 
+   3.9646727061139965`*^9, {3.964674110440527*^9, 3.964674135508629*^9}, {
+   3.9646741666335087`*^9, 3.9646741938066063`*^9}, 3.9646742711530895`*^9, 
+   3.9646744417536297`*^9, {3.964674527864851*^9, 3.964674538973196*^9}, {
+   3.964674607462122*^9, 3.9646746496463947`*^9}, 3.964674962598654*^9, {
+   3.9646750298986073`*^9, 3.964675040838623*^9}, {3.964675164060337*^9, 
+   3.9646751915317287`*^9}, {3.9646752357336617`*^9, 3.964675336382719*^9}, 
+   3.964701804447153*^9},
+ CellLabel->"Out[27]=",ExpressionUUID->"cded2367-0bb0-1347-a10e-bf84fc83f658"]
+}, Open  ]]
+}, Open  ]]
+},
+WindowSize->{960, 508},
+WindowMargins->{{Automatic, -965.5}, {Automatic, -5.5}},
+Magnification:>1. Inherited,
+FrontEndVersion->"14.2 for Microsoft Windows (64-bit) (December 26, 2024)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"7f8eb31f-7a4c-e940-82ab-726063638cda"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[576, 22, 230, 4, 96, "Title",ExpressionUUID->"fc266617-a2c0-fc4e-8acd-bd0b8ee58c73"],
+Cell[809, 28, 442, 8, 83, "Subtitle",ExpressionUUID->"7bde8321-f1cb-d34d-b8f8-e057ed8fa12a"],
+Cell[1254, 38, 1679, 28, 274, "Text",ExpressionUUID->"71548dfa-55a2-2043-8f8f-fc1b6bc1bcd9"],
+Cell[2936, 68, 12482, 334, 732, "Input",ExpressionUUID->"e9b63988-c18d-c644-a1d0-7acce4de1d57"],
+Cell[15421, 404, 380, 7, 55, "Text",ExpressionUUID->"6172c06a-7c01-5a4d-b791-8d0b6caad380"],
+Cell[15804, 413, 1592, 34, 142, "Input",ExpressionUUID->"0b25ee44-7c76-e743-bc1b-7aef72d8f381"],
+Cell[17399, 449, 669, 12, 99, "Text",ExpressionUUID->"213d2852-63bb-c649-8e13-7015fbf45bcb"],
+Cell[18071, 463, 5676, 149, 332, "Input",ExpressionUUID->"eb4b393e-73a3-ae49-acb2-233b53ccd10f"],
+Cell[23750, 614, 715, 12, 99, "Text",ExpressionUUID->"5349e1ff-a0ef-2c42-80ad-8c408ffa89ec"],
+Cell[24468, 628, 11235, 274, 713, "Input",ExpressionUUID->"9702cbe6-7cab-db4c-92a9-5e5b436337b5"],
+Cell[35706, 904, 1238, 23, 274, "Text",ExpressionUUID->"8e53a89f-356e-6048-b53a-02968863a540"],
+Cell[36947, 929, 17167, 367, 865, "Input",ExpressionUUID->"47e01374-83ed-5d40-a428-6c2aa4dbc36a"],
+Cell[54117, 1298, 489, 9, 77, "Text",ExpressionUUID->"5649e49c-faa1-a644-a614-0073a10ede1d"],
+Cell[CellGroupData[{
+Cell[54631, 1311, 2167, 59, 161, "Input",ExpressionUUID->"c8626f26-d254-6a4b-ae2f-33241afb2462"],
+Cell[56801, 1372, 1867, 47, 89, "Output",ExpressionUUID->"cded2367-0bb0-1347-a10e-bf84fc83f658"]
+}, Open  ]]
+}, Open  ]]
+}
+]
+*)
+
