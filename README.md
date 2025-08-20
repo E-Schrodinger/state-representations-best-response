@@ -12,5 +12,3 @@ Usui, Yuki, and Masahiko Ueda. "Symmetric equilibrium of multi-agent reinforceme
 
 <a id="barfuss2022"></a>
 Barfuss, Wolfram, and Richard P. Mann. "Modeling the effects of environmental and perceptual uncertainty using deterministic reinforcement learning dynamics with partial observability." *Physical Review E* 105, no. 3 (2022): 034409.
-
-The clickable citations will take readers directly to the full references at the bottom of the document when clicked.
